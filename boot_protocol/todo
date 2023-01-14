@@ -1,0 +1,30 @@
+1/12/2023
+    1:
+        - TODO: Make it to where users pass entry points of second-stage/kernel, then format the linker scripts accordingly
+            - Status: Done
+        - TODO: Locate second-stage at 0x7E00, locate kernel at higher-half
+            - Status: Done
+    3:
+        - TODO: Make it to where `boot.yaml` requires the user to tell the protocol where binary files are stored, example
+            - bin_dir: "bin"
+            - Status: Work-in-progress
+        - TODO: Make the protocol create the bin directory for the user
+            - Status: Done
+
+1/13/2023
+    1:
+        - TODO: Make it to where `linker/kernel.ld` maps kernel into higher-half
+    2:
+        - TODO: The Python script `quick_edit.py` does all the checking for us. Checkings include
+            - Making sure all data exists in `boot.yaml`
+            - More precisely, making sure all the data exists IN ORDEr in `boot.yaml`
+            - I want this to be done in C. I hate using Python for the littlest automated scenes of the protocol
+        - TODO: Multi-step configuration? For exampl
+            - `config1.c` configures the linker scripts and `boot_protocol/gdt/gdt_ideals.s`
+            - `config2.c` configures the MBR, possible second-stage bootloader(if the programmer didn't write one themselves),
+              user-makefile, protocol makefile and the according binary
+            - With this, `config1.c` will most likely not be shipped natively with the protocol, rather, its binary object file
+            - Meanwhile, with `config2.c`, it will most likely be shipped natively with the protocol
+            - `config2.c` will be the current `main.c` inside `boot_protocol/config`
+            - `config2.c` will continue to use the `Makefile` inside `boot_protocol/config`, meanwhile, `config1.c` will just have
+              its binary object file shipped with the protocol

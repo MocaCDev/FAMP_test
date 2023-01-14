@@ -1,0 +1,18 @@
+# EXAMPLE FILE
+
+# What type of OS is it?
+os_type: "bit32"
+
+# Second stage information
+has_second_stage: "yes"
+second_stage_entry_point: "main"
+second_stage_bin_o_filename: "bin/second_stage.o"
+second_stage_bin_filename: "bin/second_stage.bin"
+second_stage_source_code_file: "main.c"
+
+# kernel information
+kernel_entry_point: "kmain"
+kernel_o_binary: "bin/kernel.o"
+kernel_bin_filename: "bin/kernel.bin"
+kernel_addr: 0x900 # 0x0:0x0850=0x8500
+kernel_source_code_file: "kernel.c"
