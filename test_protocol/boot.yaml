@@ -1,0 +1,11 @@
+os_type: "bit32"
+bin_folder: "bin"
+
+has_second_stage: "yes"
+second_stage_bin_o_filename: "bin/second_stage.o"
+second_stage_bin_filename: "bin/second_stage.bin"
+second_stage_source_code_file: "main.c"
+
+kernel_o_binary: "bin/kernel.o"
+kernel_bin_filename: "bin/kernel.bin"
+kernel_source_code_file: "kernel.c"
