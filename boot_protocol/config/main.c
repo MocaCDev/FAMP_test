@@ -19,26 +19,6 @@ uint8* strdel(uint8* text, uint32 deleteStartPosition, uint32 deleteLength) {
   return text;
 }
 
-uint8 *read_format(const uint8 *filename, uint8 access[2])
-{
-	FILE* format = fopen(filename, access);
-	uint8 *raw_format = NULL;
-
-	config_assert(format, "Error openeing ../boot/boot_format.\n\tWas it deleted?\n")
-
-	fseek(format, 0, SEEK_END);
-	size_t format_size = ftell(format);
-	fseek(format, 0, SEEK_SET);
-
-	config_assert(format_size > 0, "Error with size of ../boot/bformat2.\n\tWas all the content removed?\n")
-
-	raw_format = calloc(format_size, sizeof(*format));
-	fread(raw_format, sizeof(uint8), format_size, format);
-	fclose(format);
-
-	return raw_format;
-}
-
 int32 main(int args, char *argv[])
 {
 	/* Get all the information we need. */
@@ -55,7 +35,7 @@ int32 main(int args, char *argv[])
 	FILE* boot_file = fopen("../boot/boot.s", "w");
 	FILE* makefile = fopen("../Makefile", "w");
 
-	if(yod.has_second_stage == true)
+	/* Write MBR. */
 	{
 		/* Open MBR format. */
 		format = read_format((const uint8 *)"formats/boot_format", "rb");
@@ -63,100 +43,102 @@ int32 main(int args, char *argv[])
 		/* Write MBR. */
 		format = realloc(format, (strlen(format) + 60) * sizeof(*format));
 
-		uint8 format2[strlen(format)];
+		/* Open `mbr_partition_table.bin` to see how many sectors it is then add that to `sector_after_mbr`. */
+		FILE* mbr_part_table_bin = fopen("../bin/mbr_partition_table.bin", "rb");
+
+		if(!(mbr_part_table_bin))
+		{
+			fclose(mbr_part_table_bin);
+			exit(1);
+		}
+
+		fseek(mbr_part_table_bin, 0, SEEK_END);
+		size_t bin_size = ftell(mbr_part_table_bin);
+		fseek(mbr_part_table_bin, 0, SEEK_SET);
+
+		fclose(mbr_part_table_bin);
+
+		FILE* second_stage_bin = fopen("../bin/second_stage.bin", "rb");
+
+		if(!(second_stage_bin))
+		{
+			fclose(second_stage_bin);
+			exit(1);
+		}
+
+		fseek(second_stage_bin, 0, SEEK_END);
+		size_t ssb_size = ftell(second_stage_bin);
+		fseek(second_stage_bin, 0, SEEK_SET);
+
+		fclose(second_stage_bin);
+
+		uint8 format2[strlen(format)+120];
+		uint8 sector = sector_after_mbr + (bin_size / 512);
 		sprintf(format2, format,
-			yod.kern_addr, 								// .kernel_addr dw addr
-			yod.kern_addr*16, 							// .kernel_loc dw addr
-			strcat(ss_bin_file, yod.ss_filename_bin_name), 	// second_stage: incbin second stage binary
+			bin_size/512,
+			yod.FS_type,
+			yod.OS_name,
+			yod.OS_version,
+			yod.type,
+			sector,
+			sector + (ssb_size / 512),
+			ssb_size / 512,
+			sector + (ssb_size / 512),
+			sector + ((ssb_size / 512) + (yod.kern_filename_bin_size / 512)),
+			yod.kern_filename_bin_size / 512,
+			sector + ((ssb_size / 512) + (yod.kern_filename_bin_size / 512)),
+			0x15, 0x15,
+			"bin/second_stage.bin",//strcat(ss_bin_file, yod.ss_filename_bin_name), 	// second_stage: incbin second stage binary
 			strcat(kern_bin_file, yod.kern_filename_bin_name));	// kernel: incbin kernel binary
 		fwrite(format2, sizeof(uint8), strlen(format2), boot_file);
 
 		fclose(boot_file);
-	} else
-	{
-		format = read_format((const uint8 *)"formats/boot_format2", "rb");
-
-		/* Write MBR. */
-		format = realloc(format, (strlen(format) + 60) * sizeof(*format));
-
-		uint8 format2[strlen(format)];
-		sprintf(format2, format,
-			yod.kern_addr*16,							// jmp 0x8:kernel_address
-			yod.kern_addr, 								// .kernel_addr dw addr
-			yod.kern_addr*16, 							// .kernel_loc dw addr
-			strdel(yod.kern_filename_bin_name, 0, 3)	// kernel: incbin kernel binary
-		);
-		fwrite(format2, sizeof(uint8), strlen(format2), boot_file);
-
-		fclose(boot_file);
 	}
 
-	/* Read in format(`protocol/gdt/gdt_ideals.asm`) and write in the address. */
-	/*format = read_format((const uint8 *)"../protocol/gdt/gdt_ideals.s", "rb");
-
-	FILE* bit32_jump = fopen("../protocol/gdt/gdt_ideals.s", "wb");
-
-	config_assert(bit32_jump, "Error opening `../protocol/gdt/gdt_ideals.s`.\n")
-
-	format = realloc(format, (strlen(format) + 60) * sizeof(*format));
-	uint8 jump_format2[strlen(format)];
-	sprintf(jump_format2, format, yod.kern_addr*16);
-	fwrite(jump_format2, strlen(jump_format2), sizeof(uint8), bit32_jump);
-
-	fclose(bit32_jump);*/
-
-	uint8 *mformat = NULL;
-	if(yod.has_second_stage == true)
+	/* TODO: Figure out what we're doing here. Do we want to format `gdt_ideals.s` with C, or continue to do it via `quick_edit.py`?
+	 *
+	 * As of current, `quick_edit.py` deals with making sure the file `boot.yaml` has all the
+	 * required data as well as writing to the file `protocol/gdt/gdt_ideals.asm`.
+	 * I would like to make this happen in C, however, currently, there is a road block as
+	 * the kernel/second-stage binary files HAVE to exist for this file(`main.c`,`main.o`) to run, however, this file NEEDS to run(if its configuring `gdt_ideals.s`)
+	 * before the according binary files are generated. So, currently, we're in a stalemate.
+	 */
+	
+	/* Write Makefile. */
 	{
-		mformat = read_format((const uint8 *)"formats/makefile_format", "r");
+		format = read_format((const uint8 *)"formats/makefile_format", "r");
 
-		/* Create static memory. Allow for additional 60 characters. */
-		uint8 mformat1[strlen(mformat)+60];
+		/* Create static memory. Allow for additional 120 characters. */
+		uint8 mformat1[strlen(format)+180];
 
 		/* Apply values and write. */
-		sprintf(mformat1, mformat, 
-			strcat(ss_o_filename, yod.ss_filename_bin_o_name),
-			yod.ss_filename,
+		sprintf(mformat1, format, 
 			strcat(kernel_o_filename, yod.kern_filename_bin_o_name),
-			yod.kern_filename,
-			yod.ss_filename_bin_o_name,
 			yod.kern_filename_bin_o_name,
-			ss_bin_file, kern_bin_file,
-			ss_bin_file, kern_bin_file);
+			yod.kern_filename,
+			yod.kern_filename_bin_o_name,
+			kern_bin_file,
+			kern_bin_file,
+			yod.kern_filename_bin_o_name);
 		
 		fwrite(mformat1, strlen(mformat1), sizeof(*mformat1), makefile);
 
 		fclose(makefile);
-	} else
-	{
-		mformat = read_format("formats/makefile_format2", "r");
-
-		/* Create static memory. Allow for additional 60 characters. */
-		uint8 mformat2[strlen(mformat)+60];
-
-		/* Apply values and write. */
-		sprintf(mformat2, mformat, 
-			strcat(kernel_o_filename, yod.kern_filename_bin_o_name),
-			yod.kern_filename,
-			yod.kern_filename_bin_o_name);
-		
-		fwrite(mformat2, strlen(mformat2)-1, sizeof(*mformat2), makefile);
-
-		fclose(makefile);
 	}
 
-	/* Write the users Makefile. */
-	FILE *user_makefile = fopen("../../Makefile", "w");
+	/* Write users Makefile. */
+	{
+		/* Write the users Makefile. */
+		FILE *user_makefile = fopen("../../Makefile", "w");
 
-	config_assert(user_makefile, "Error creating users-makefile.\n")
-	format = read_format((const uint8 *)"formats/user_makefile_format", "rb");
+		config_assert(user_makefile, "Error creating users-makefile.\n")
+		format = read_format((const uint8 *)"formats/user_makefile_format", "rb");
 
-	/* Write. */
-	fwrite(format, strlen(format), sizeof(*format), user_makefile);
-	fclose(user_makefile);
-
+		/* Write. */
+		fwrite(format, strlen(format), sizeof(*format), user_makefile);
+		fclose(user_makefile);
+	}
 	free(format);
-	free(mformat);
 
 	return 0;
 }

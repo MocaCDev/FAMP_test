@@ -1,6 +1,10 @@
 #ifndef protocol_disk
 #define protocol_disk
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef protocol_types
 #include "../types.h"
 #endif
@@ -21,12 +25,12 @@ typedef struct sectors
 
 } _sectors;
 
-extern void read_disk(uint16 sectors, uint16 addr);
+extern void __read_disk(uint16 sectors, uint16 addr);
 
-/* Read the sectors :D (fuck assembly, it's being a bitch today for some reason)*/
+/* Read the sectors :D (screw assembly, it's being a bitch today for some reason)*/
 void read_sectors(uint16 addr, uint8 sector_count)
 {
-    read_disk(sector_count, addr);
+    __read_disk(sector_count, addr);
     //__asm__("cli;hlt");
 
     //*curr_sector_count += sector_count;
@@ -51,5 +55,9 @@ void load_needed_memory(_disk_read_info *dri)
         }
     }
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

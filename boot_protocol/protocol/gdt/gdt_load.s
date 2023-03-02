@@ -1,7 +1,18 @@
-global load_gdt
-
+;
+;   __test_address: back-end stub
+;
+;       Test to see if a offset from a address surpassses a specific address
+;
+;       Input: 
+;           uint16 ptr starting address(ax, ebp+8)
+;           uint16 offset(bx, ebp+12)
+;           uint16 conditional address(cx, ebp+16)
+;       Output:
+;           AH=`status`(1 if starting address + offset > conditional, 0 if starting address + offset < conditional)
+;
+global __load_gdt
 use16
-load_gdt:
+__load_gdt:
     ;mov eax, [g_GDT32_16_desc_addr]
     ;mov [g_GDTDesc], eax
     ;mov eax, [g_GDT32_16_address]
@@ -17,4 +28,4 @@ load_gdt:
 	or eax, 0x01
 	mov cr0, eax
 
-    jmp word 0x08:init_pm
+    jmp word 0x08:__init_pm

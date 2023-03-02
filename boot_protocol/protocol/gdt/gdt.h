@@ -1,17 +1,16 @@
 #ifndef protocol_gdt
 #define protocol_gdt
 
-
-/* Constants for `init_bootloader` function. */
-/* Helps with configuring certain aspects of the protocol such as what type of GDT. */
-//#define gdt_bit32_bit16         0x3216
-//#define gdt_bit32_only          0x32
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* What is the status of GDT?
  * 0 - GDT/GDT Descriptor needs to be loaded to memory.
  * 1 - There is an already-working GDT/GDT Descriptor loaded in memory. 
  * */
-static unsigned char *gdt_status = (unsigned char *)0xC000;
+extern uint8 g_gdt_status_address[];
+static unsigned char *gdt_status = (unsigned char *)g_gdt_status_address;
 
 /* Enum of different types of GDT. */
 enum GDT_TYPE {
@@ -138,87 +137,125 @@ typedef struct gdt_desc
  *       Referencing the addresses in the C program doesn't have a huge impact, right?
  * */
 
-/* 0xA000 - Memory address of GDT. */
-static _GDT *gdt = (_GDT *)0xA000;
+/* GDT in memory. */
+extern _GDT g_gdt_address[];
+//static _GDT *gdt = (_GDT *)0xA000;
 
 /* 0xAA00 - Memory address of GDT description. */
-static _gdt_desc *gdtDesc = (_gdt_desc *)0xAA00;
+extern _gdt_desc g_gdt_desc_address[];
+//static _gdt_desc *gdtDesc = (_gdt_desc *)0xAA00;
 
 /* Function call to either load in a new GDT into memory or reference an
  * already-existing GDT that has been previously loaded into memory. */
-extern void save_gdt_and_load(_gdt_desc gdtDesc, _GDT gdt);
+extern void __save_gdt_and_load(_gdt_desc gdtDesc, _GDT gdt);
 
-/* Load the GDT. */
-void load_32bit()
+/* GDT status settings for `set_gdt_status`. */
+enum gdt_status_settings
 {
-    /* Yes, I know. This is very, very excessive checking.*/
-    if(gdt == NULL || gdtDesc == NULL || (gdt == NULL && gdtDesc == NULL))
-    {
-        print("Error from `load_32bit`:\nThe gdt or gdt description(or both) is NULL :(");
-        halt
-    }
+    NO_GDT              = 0x00,
+    BIT16_BIT32_GDT     = 0x01,
+    BIT32_ONLY_GDT      = 0x02
+};
 
-    save_gdt_and_load(*gdtDesc, *gdt);
-    print("Hey");
-    halt
+/* Manually set the GDT status with a setting(`NO_GDT`, `BIT16_BIT32_GDT` or `BIT32_ONLY_GDT`).
+ * 
+ * Side Note: `set_gdt_status(NO_GDT)` is quite useless, especially if you load a clean GDT/GDT description into memory.
+ *            `set_gdt_status(NO_GDT)` can also screw you up if you load a already-working GDT/GDT description into memory -
+ *             this will force you to either make the protocol fill out the GDT, or you yourself. 
+ */
+static void set_gdt_status(enum gdt_status_settings setting)
+{
+    *gdt_status = setting;
 }
 
-/* Setting up the description of the GDT. */
-static inline void setup_gdt_and_gdt_desc()
+/* 
+ *  __load_32bit: back-end function
+ *
+ *  Load the GDT into memory, and jump to 32-bit mode.
+ *
+ *  Input: None
+ *  Output: None
+ *  On Error: This function does not error
+ */
+void __load_32bit()
+{
+    /* Make sure there is a valid GDT/GDT description in memory.
+     * Yes, this is somewhat "excessive checking".. better safe then sorry.
+     */
+    if(g_gdt_address->null_desc == 1 || g_gdt_desc_address->size == 1 || *gdt_status == 0)
+    {
+        print("\n  Error from `load_32bit`:\n  There is not a valid GDT/GDT description loaded into memory :(\n      -> Did you forget to `init_bootloader`?\n      -> Perhaps you forgot to setup your GDT?\n\n  For future reference, put `#define default_gdt` if you want FAMP to \n  fill out your GDT.\n\n  Do Note: `default_gdt` only works with the following settings:\n      1. `DEFAULT_ALL`\n      2. `CLEAN_GDT_DEF_VID_MODE`\n      3. `CLEAN_GDT_VESA_VID_MODE`\0");
+        halt
+    }
+    
+    /* Lets get into 32-bit mode fast!! */
+    __save_gdt_and_load(*g_gdt_desc_address, *g_gdt_address);
+}
+
+/*
+ *  __setup_gdt_and_gdt_desc: back-end function
+ *
+ *  Assign default values to each field of the GDT struct
+ *
+ *  Input: None
+ *  Output: None
+ *  On Error: This function does not error
+ */
+static inline void __setup_gdt_and_gdt_desc()
 {
 #ifdef default_gdt
     /* If `gdt_status` is 1, that means there is a already-working GDT/GDT descriptor loaded into memory. */
     /* If `gdt_status` is 0, that means there needs to be a working GDT/GDT descriptor loaded into memory */
     if(*gdt_status == 0)
     {
-        gdt->null_desc          = 0,
+        g_gdt_address->null_desc          = 0,
 
         /* 32-bit code segment. */
-        gdt->code32_limit       = 0xFFFF;
-        gdt->code32_base        = 0x0;
-        gdt->code32_base2       = 0x0;
-        gdt->code32_access      = 0b10011010;
-        gdt->code32_gran        = 0b11001111;
-        gdt->code32_base_high   = 0x0;
+        g_gdt_address->code32_limit       = 0xFFFF;
+        g_gdt_address->code32_base        = 0x0;
+        g_gdt_address->code32_base2       = 0x0;
+        g_gdt_address->code32_access      = 0b10011010;
+        g_gdt_address->code32_gran        = 0b11001111;
+        g_gdt_address->code32_base_high   = 0x0;
 
         /* 32-bit data segment. */
-        gdt->data32_limit       = 0xFFFF;
-        gdt->data32_base        = 0x0;
-        gdt->data32_base2       = 0x0;
-        gdt->data32_access      = 0b10010010;
-        gdt->data32_gran        = 0b11001111;
-        gdt->data32_base_high   = 0x0;
+        g_gdt_address->data32_limit       = 0xFFFF;
+        g_gdt_address->data32_base        = 0x0;
+        g_gdt_address->data32_base2       = 0x0;
+        g_gdt_address->data32_access      = 0b10010010;
+        g_gdt_address->data32_gran        = 0b11001111;
+        g_gdt_address->data32_base_high   = 0x0;
 
         /* Only fill out 16-bit segments if we have it. */
 #ifdef has_rmode_access
         /* 16-bit code segment. */
-        gdt->code16_limit       = 0xFFFF;
-        gdt->code16_base        = 0x0;
-        gdt->code16_base2       = 0x0;
-        gdt->code16_access      = 0b10011010;
-        gdt->code16_gran        = 0b00001111;
-        gdt->code16_base_high    = 0x0;
+        g_gdt_address->code16_limit       = 0xFFFF;
+        g_gdt_address->code16_base        = 0x0;
+        g_gdt_address->code16_base2       = 0x0;
+        g_gdt_address->code16_access      = 0b10011010;
+        g_gdt_address->code16_gran        = 0b00001111;
+        g_gdt_address->code16_base_high    = 0x0;
 
         /* 16-bit data segment. */
-        gdt->data16_limit       = 0xFFFF;
-        gdt->data16_base        = 0x0;
-        gdt->data16_base2       = 0x0;
-        gdt->data16_access      = 0b10010010;
-        gdt->data16_gran        = 0b00001111;
-        gdt->data16_base_high   = 0x0;
+        g_gdt_address->data16_limit       = 0xFFFF;
+        g_gdt_address->data16_base        = 0x0;
+        g_gdt_address->data16_base2       = 0x0;
+        g_gdt_address->data16_access      = 0b10010010;
+        g_gdt_address->data16_gran        = 0b00001111;
+        g_gdt_address->data16_base_high   = 0x0;
 #endif
 
         /* Setup the description for the GDT. */
-        gdtDesc->size = (uint16)sizeof(*gdt);
-        gdtDesc->address = (uint32)gdt;
-    }
-#else
-    if(*gdt_status == 0)
-    {
-        print("Error in `setup_gdt_desc`:\n  Did you forget to `init_bootloader`?\n  Perhaps you forgot to setup your GDT?\n\nFor future reference, put `#define default_gdt` if you want Moca Protocol to \nfill out your GDT.\n");
-        __asm__("cli;hlt");
+        g_gdt_desc_address->size = (uint16)sizeof(*g_gdt_address);
+        g_gdt_desc_address->address = (uint32)g_gdt_address;
+
+        set_gdt_status(BIT16_BIT32_GDT);
     }
 #endif
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

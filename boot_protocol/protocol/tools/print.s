@@ -1,8 +1,20 @@
 use16
 
-global move_cursor
-move_cursor:
-    push ebp
+;
+;   __move_cursor: back-end stub
+;
+;       Moves text-mode cursor in real-mode
+;
+;       Input: 
+;           uint8 x_pos(dl, ebp+8)
+;           uint8 y_pos(dh, ebp+12)
+;       Output:
+;           None
+;       On Error: This stub does not error
+;
+global __move_cursor
+__move_cursor:
+    pusha
     mov ebp, esp
 
     ; column
@@ -10,16 +22,81 @@ move_cursor:
     ; row
     mov dh, [ebp + 12]
 
-    pop ebp
-
     mov  bh, 0
     mov  ah, 02h
     int  10h
 
+    popa
+
     ret
 
-global print
-print:
+;
+;   __print_char: back-end stub
+;
+;       Display single character to screen using real-mode BIOS teletyping interrupt AH=0x0E, AL=character, INT=0x10
+;
+;       Input: 
+;           None
+;       Required Register:
+;           AL=character
+;       Output:
+;           None
+;       On Error: This stub does not error
+;
+__print_char:
+    pusha
+    mov ah, 0x0E
+    int 0x10
+    popa
+
+    ret
+
+;
+;   __print_char_color: back-end stub
+;
+;       Display single character to screen in color using real-mode BIOS teletyping interrupt AH=0x0E, AL=character, INT=0x10
+;
+;       Input: 
+;           uint8 character(al, ebp + 8)
+;           uint8 page(bh, ebp + 12)
+;           uint8 color(bl, ebp + 16)
+;       Required Register:
+;           AL=character
+;       Output:
+;           None
+;       On Error: This stub does not error
+;
+global __print_char_color
+__print_char_color:
+    push ebp
+    mov ebp, esp
+
+    mov al, [ebp + 8]
+    mov bh, [ebp + 12]
+    mov bl, [ebp + 16]
+
+    pop ebp
+
+    MOV AH,09H
+    MOV CX, 1      ; Character count
+    INT 10h
+
+    ret
+
+;
+;   __asm_print: back-end stub
+;
+;       Print to screen using real-mode BIOS teletyping interrupt AH=0x0E, AL=character, INT=0x10
+;
+;       Input: 
+;           None
+;       Output:
+;           None
+;       On Error: This stub does not error
+;
+global __asm_print
+__asm_print:
+    pusha
 	mov ah, 0x0e
 .print:
 	mov al, [si]
@@ -39,51 +116,57 @@ print:
 
 	jmp .print
 .end_print:
+    popa
 	xor ax, ax
 	mov si, ax
 	ret
 
-global print_char
-print_char:
-    mov ah, 0x0e                ; TTY function to display character in AL
-    int 0x10                    ; Make BIOS call
-    
-    cmp al, 0x0A
-    je .format
-    ret
-.format:
+;
+;   __print_word_hex: back-end stub
+;
+;       Print 16-bit(word) hex value
+;
+;       Input: 
+;           AX = 16-bit number to print
+;           BH = Page number
+;           BL = forground color
+;       Output:
+;           None
+;       On Error: This stub does not error
+;
+global __print_word_hex
+__print_word_hex:
+    pusha
+    xchg al, ah                 ; Print the high byte first
+    call __print_byte_hex
+    xchg al, ah                 ; Print the low byte second
+    call __print_byte_hex
+
     mov ah, 0x0E
     mov al, 0x0D
     int 0x10
+    mov ah, 0x0E
+    mov al, 0x0A
+    int 0x10
 
-; Function: print_word_hex
-;           Print a 16-bit unsigned integer in hexadecimal on specified
-;           page and in a specified color if running in a graphics mode
-;
-; Inputs:   AX = Unsigned 16-bit integer to print
-;           BH = Page number
-;           BL = foreground color (graphics modes only)
-; Returns:  None
-; Clobbers: Mone
-global print_word_hex
-print_word_hex:
-    xchg al, ah                 ; Print the high byte first
-    call print_byte_hex
-    xchg al, ah                 ; Print the low byte second
-    call print_byte_hex
+    popa
     ret
 
-; Function: print_byte_hex
-;           Print a 8-bit unsigned integer in hexadecimal on specified
-;           page and in a specified color if running in a graphics mode
 ;
-; Inputs:   AL = Unsigned 8-bit integer to print
+;   __print_byte_hex: back-end stub
+;
+;       Print 8-bit(byte) hex value
+;
+;       Input: 
+;           AL = 8-bit number to print
 ;           BH = Page number
-;           BL = foreground color (graphics modes only)
-; Returns:  None
-; Clobbers: Mone
-global print_byte_hex
-print_byte_hex:
+;           BL = forground color
+;       Output:
+;           None
+;       On Error: This stub does not error
+;
+global __print_byte_hex
+__print_byte_hex:
     push ax
     push cx
     push bx

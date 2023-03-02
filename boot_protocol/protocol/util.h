@@ -1,6 +1,10 @@
 #ifndef protocol_util
 #define protocol_util
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef protocol_types
 #include "types.h"
 #endif
@@ -9,6 +13,39 @@
 // *      Common Functionality     *
 // *********************************
 #define halt            __asm__("cli;hlt");
+
+uint8 __char_set_bit(uint8 c, uint8 pos)
+{
+    if(pos >= 8)
+        pos = 7;
+    
+    uint8 mask = 1 << pos;
+    return (c & ~mask) | (1 << pos);
+}
+uint8 __char_unset_bit(uint8 c, uint8 pos)
+{
+    if(pos >= 8)
+        pos = 7;
+    
+    uint8 mask = 1 << pos;
+    return (c & ~mask) | (0 << pos);
+}
+
+bool __char_check_bit_is_set(uint8 c, uint8 pos)
+{
+    if(pos >= 8)
+        pos = 7;
+    
+    return (c & (1 << pos));
+}
+
+bool __char_check_bit_not_set(uint8 c, uint8 pos)
+{
+    if(pos >= 8)
+        pos = 7;
+    
+    return (c & (1 << pos)) == false ? true : false;
+}
 
 uint8 grab_byte_s(uint16 bytes, uint8 pos)
 {
@@ -37,7 +74,7 @@ size strlen(uint8 *string)
 {
     size string_size = 0;
 
-    while(*(string++) != '\0') string_size++;
+    while(*(string++) != '\0' && *(string++)) string_size++;
     return string_size;
 }
 
@@ -92,5 +129,9 @@ void memsetd(uint32 *array, uint32 value, size count)
 }
 
 // **********END OF COMMON FUNCTIONALITY**********
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

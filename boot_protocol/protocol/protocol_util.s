@@ -6,6 +6,8 @@ use16
 ; =======================
 ;
 
+%include "protocol/memory/addresses.s"
+%include "protocol/memory/address_ideals.s"
 %include "protocol/extra/tests.s"
 %include "protocol/mouse/mouse.s"
 %include "protocol/tools/print.s"
@@ -29,7 +31,18 @@ use16
 
 setting         db 0x0
 
-
+;
+;   init_bootloader: "front-end" stub
+;
+;       Load a already-working or clean GDT/GDT description into memory. Check memory map.
+;       Load user into B8000 mode or VESA video mode.
+;
+;       Input: 
+;           int8 setting(ah, ebp + 8)
+;       Output:
+;           None
+;       On Error: halts
+;
 global init_bootloader
 use16
 init_bootloader:
@@ -38,7 +51,7 @@ init_bootloader:
     int 0x10
 
     ; Init the mouse
-    call config_mouse
+    call __config_mouse
 
     push ebp
     mov ebp, esp
@@ -154,11 +167,10 @@ init_bootloader:
 
     ret
 .error:
-    mov ah, 0x0E
-    mov al, 'E'
-    int 0x10
-
-    cli
-    hlt
+    mov si, invalid
+    call __asm_print
+.error_hlt:
+    jmp .error_hlt
     
+invalid: db "Invalid setting passed to `init_bootloader`", 0x0D, 0x0A, 0x00
 %include "protocol/gdt/gdt_ideals.s"

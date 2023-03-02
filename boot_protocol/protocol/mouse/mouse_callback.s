@@ -12,8 +12,19 @@
 ; Clobbers: None
 
 ARG_OFFSETS      equ 6          ; Offset of args from BP
-global mouse_callback
-mouse_callback:
+;
+;   __mouse_callback: back-end stub
+;
+;       Obtain new X/Y values of the mouse
+;
+;       Input: 
+;           None
+;       Output:
+;           None
+;       On Error: This stub does not error
+;
+global __mouse_callback
+__mouse_callback:
     push bp                     ; Function prologue
     mov bp, sp
     push ds                     ; Save registers we modify
@@ -55,5 +66,5 @@ mouse_callback:
     pop ds
     pop bp                      ; Function epilogue
 
-mouse_callback_dummy:
+__mouse_callback_dummy:
     retf                        ; This routine was reached via FAR CALL. Need a FAR RET

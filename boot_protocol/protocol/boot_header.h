@@ -1,6 +1,10 @@
 #ifndef protocol_boot_header
 #define protocol_boot_header
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef protocol_types
 #include "types.h"
 #endif
@@ -13,19 +17,27 @@
 asm(".code16gcc\n");
 
 /* Beginning address of second-stage bootloader(`main.c`). */
-extern uint8 begin_symbol[];
-extern uint8 end_symbol[];
+extern uint16 second_stage_start;
+extern uint16 second_stage_end;
 
-extern void init_bootloader(int8 setting);
-extern void print_str();
+extern void init_bootloader(int8);
+extern void __test_address(uint16);
 
 /* Other ideals for the protocol*/
 #ifndef protocol_util
 #include "util.h"
 #endif
 
+#ifndef protocol_asm_help
+#include "tools/asm_help.h"
+#endif
+
 #ifndef protocol_print
 #include "tools/print.h"
+#endif
+
+#ifndef protocol_memory_stamp
+#include "memory/memory_stamp.h"
 #endif
 
 #ifndef protocol_disk
@@ -33,21 +45,47 @@ extern void print_str();
 #endif
 
 #ifndef protocol_gdt_api
-#include "gdt.h"    
+#include "gdt.h"
 #endif
 
-uint8 inp(uint16 port)
-{
-        uint8 rv;
-        __asm__ __volatile__ ("in %0, %1" : "=a"(rv) : "dN"(port));
-        return rv;
+/*
+ *  __inp: back-end function
+ *
+ *  Read-in a value from a port
+ *
+ *  Input: uint16 port
+ *  Output: uint8 rv(return-value from the port)
+ *  On Error: This function does not error
+ */
+uint8 __inp(uint16 port) {
+    uint8 rv;
+    
+    __asm__ __volatile__("in %0, %1": "=a"(rv): "dN"(port));
+    return rv;
 }
-void outp(uint16 port, uint8 data)
-{
-        __asm__ __volatile__ ("outb %0, %1" : : "dN"(port), "a"(data));
+/*
+ *  __outp: back-end function
+ *
+ *  Write a value to a port
+ *
+ *  Input: uint16 port, uint8 data
+ *  Output: None
+ *  On Error: This function does not error
+ */
+void __outp(uint16 port, uint8 data) {
+    __asm__ __volatile__("outb %0, %1":: "dN"(port), "a"(data));
 }
 
 /* For user-convenience. */
-#define starting_point          __attribute__((section("__start")))
+#define starting_point __attribute__((section("__start")))
+
+/* Memory addresses used throughout the protocol. 
+ * TODO: Might delete this comment. Memory addresses critical to the protocol will be defined within the given
+ *       header file that works with the given feature where the address is critical.
+ */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

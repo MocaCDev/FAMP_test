@@ -1,7 +1,19 @@
-global read_disk
+;
+;   __read_disk: back-end stub
+;
+;       Read X amount of sectors into memory address Y
+;
+;       Input: 
+;           uint16 sectors(ax, ebp + 8, assigned to `sector_count`)
+;           uint16 address(ax, ebp + 12, assigned to `address`)
+;       Output:
+;           None
+;       On Error: halt
+;
+global __read_disk
 sector_count        dw 0x0
 address             dw 0x0
-read_disk:
+__read_disk:
     push ebp
     mov ebp, esp
 
@@ -24,16 +36,16 @@ read_disk:
     mov dh, 0x00
     mov dl, 0x80
     int 0x13
-    jc .read_disk_failed
+    jc .__read_disk_failed
 
     jmp 0x0:0xA000
 
     ret
-.read_disk_failed:
+.__read_disk_failed:
     mov si, disk_failure
-    call print
+    call __asm_print
 
-.loop:
-    jmp .loop
+.__loop:
+    jmp .__loop
 
 disk_failure: db "Read disk error :(", 0xD, 0xA, 0x0
