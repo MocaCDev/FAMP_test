@@ -1,40 +1,7 @@
-.PHONY: run, clean, build
+.PHONY: run
+.PHONY: clean
 
-FLAGS = -masm=intel -O1 -Wno-error -c -nostdinc -nostdlib -fno-builtin -fno-stack-protector -ffreestanding -m32
-run: build
-	@qemu-system-i386 -m 4G -drive format=raw,file=../bin/OS.image
-
-bin/second_stage.o:
-	@gcc ${FLAGS} -o bin/second_stage.o ../boot/second_stage.c
-	@ld -m elf_i386 -Tlinker/linker.ld -nostdlib --nmagic -o bin/boot.out bin/second_stage.o bin/protocol_util.o
-	@objcopy -O binary bin/boot.out bin/second_stage.bin
-	@./bin/format.o bin/second_stage.bin --second_stage
-
-../bin/kernel.o:
-	@gcc ${FLAGS} -o ../bin/kernel.o ../kernel.c
-	@ld -m elf_i386 -Tlinker/kernel.ld -nostdlib --nmagic -o ../bin/kernel.out ../bin/kernel.o bin/protocol_util.o
-	@objcopy -O binary ../bin/kernel.out ../bin/kernel.bin
-	@./bin/format.o ../bin/kernel.bin --kernel
-
-utils:
-	@nasm protocol/protocol_util.s -f elf32 -o bin/protocol_util.o
-
-build: utils bin/second_stage.o ../bin/kernel.o bin/mbr_partition_table.o bin/higher_half_kernel.o
-	@nasm boot/boot.s -f bin -o ../bin/OS.image
-	@chmod +x config/scripts/*
-
-bin/mbr_partition_table.o:
-	@nasm boot/partition_util.s -f elf32 -o bin/partition_util.o
-	@gcc ${FLAGS} -o bin/mbr_partition_table.o -c boot/mbr_partition_table.c
-	@ld -m elf_i386 -Tboot/mbr_partition_table.ld -nostdlib --nmagic -o bin/mbr_partition_table.out bin/mbr_partition_table.o bin/partition_util.o
-	@objcopy -O binary bin/mbr_partition_table.out bin/mbr_partition_table.bin
-	@./bin/format.o bin/mbr_partition_table.bin --jpad
-
-bin/higher_half_kernel.o:
-	@gcc ${FLAGS} -o bin/higher_half_kernel.o -c boot/higher_half_kernel.c
-	@ld -m elf_i386 -Tboot/higher_half_kernel.ld -nostdlib --nmagic -o bin/higher_half_kernel.out bin/higher_half_kernel.o
-	@objcopy -O binary bin/higher_half_kernel.out bin/higher_half_kernel.bin
-	@./bin/format.o bin/higher_half_kernel.bin --jpad
-
+run:
+	@cd boot_protocol && make
 clean:
-	@./config/scripts/clean
+	@cd boot_protocol && make clean
